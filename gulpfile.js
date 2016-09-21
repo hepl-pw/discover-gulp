@@ -7,10 +7,14 @@ var
     size = require('gulp-size'),
     imacss = require('gulp-imacss'),
     sass = require('gulp-sass'),
+    htmlclean = require('gulp-htmlclean'),
+    preprocess = require('gulp-preprocess'),
+    pkg = require('./package.json'),
     del = require('del');
 
 // Définition de quelques variables générales pour notre gulpfile
 var
+    devBuild = ((process.env.NODE_ENV || 'development').trim().toLowerCase() !== 'production'),
     source = 'source/',
     dest = 'build/';
 
@@ -32,9 +36,19 @@ var
         watch: [source + 'scss/**/*'],
         out: dest + 'css/',
         sassOpts: {
-            outputStyle: 'compressed',
+            outputStyle: 'expanded',
             precision: 3,
             errLogToConsole: true
+        }
+    },
+    html = {
+        in: source + '*.html',
+        watch: [source + '*.html', source + 'template/**/*'],
+        out: dest,
+        context: {
+            devBuild: devBuild,
+            author: pkg.author,
+            version: pkg.version
         }
     };
 
@@ -67,8 +81,21 @@ gulp.task('sass', function () {
         .pipe(gulp.dest(css.out));
 });
 
+gulp.task('html', function () {
+    var page = gulp.src(html.in).pipe(preprocess({context: html.context}));
+    if (!devBuild) {
+        page = page
+            .pipe(size({title:'HTML avant minification:'}))
+            .pipe(htmlclean())
+            .pipe(size({title:'HTML après minification:'}));
+    }
+    return page.pipe(gulp.dest(html.out));
+});
+
 // Tâche par défaut exécutée lorsqu’on tape juste *gulp* dans le terminal
-gulp.task('default', ['images'], function () {
+gulp.task('default', ['images', 'sass'], function () {
+    gulp.watch(html.watch, ['html']);
     gulp.watch(imagesOpts.watch, ['images']);
+    gulp.watch(css.watch, ['sass']);
 });
 
